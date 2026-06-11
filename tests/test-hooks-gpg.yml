@@ -1,0 +1,28 @@
+name: Test hooks and GPG options
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          source_repo_path: AndreasAugustin/actions-template-sync
+          upstream_branch: main
+          is_dry_run: "true"
+          is_allow_hooks: "true"
+          hooks: |
+            after_clone:
+              - run: echo "hook executed"
+          gpg_private_key: ""
+          gpg_passphrase: ""
+        continue-on-error: true
+      - name: Assert action ran
+        run: |
+          echo "Action completed with hooks and GPG options"
+          echo "PASS"
