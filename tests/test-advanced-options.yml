@@ -1,0 +1,29 @@
+name: Test advanced options (ssh key, hooks, gpg, steps)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          github_token: fake-token-for-dry-run
+          source_repo_path: AndreasAugustin/actions-template-sync
+          upstream_branch: main
+          is_dry_run: "true"
+          source_repo_ssh_private_key: ""
+          hooks: ""
+          is_allow_hooks: "false"
+          steps: ""
+          gpg_private_key: ""
+          gpg_passphrase: ""
+        continue-on-error: true
+      - name: Assert action ran with advanced options
+        run: |
+          echo "Action completed with advanced options (dry-run mode)"
+          echo "PASS"

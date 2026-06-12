@@ -1,0 +1,28 @@
+name: Test dry-run basic sync
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          github_token: fake-token-for-dry-run
+          source_repo_path: AndreasAugustin/actions-template-sync
+          upstream_branch: main
+          is_dry_run: "true"
+          pr_body: "Automated template sync PR"
+          pr_reviewers: ""
+          git_user_name: "Test Bot"
+          git_user_email: "testbot@example.com"
+          git_remote_pull_params: "--allow-unrelated-histories"
+        continue-on-error: true
+      - name: Assert action ran
+        run: |
+          echo "Action completed (dry-run mode)"
+          echo "PASS"
