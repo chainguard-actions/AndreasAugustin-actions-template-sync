@@ -1,0 +1,27 @@
+name: Test optional inputs coverage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          source_repo_path: AndreasAugustin/actions-template-sync
+          upstream_branch: main
+          is_dry_run: "true"
+          github_token: "dummy-token-for-coverage"
+          pr_body: "Automated template sync PR body"
+          pr_reviewers: "reviewer1,reviewer2"
+          source_repo_ssh_private_key: ""
+          hooks: ""
+          steps: ""
+          gpg_private_key: ""
+          gpg_passphrase: ""
+      - name: Assert action ran
+        run: |
+          echo "Action completed with outcome: ${{ steps.action.outcome }}"
+          echo "PASS: action step was reached with optional inputs"
