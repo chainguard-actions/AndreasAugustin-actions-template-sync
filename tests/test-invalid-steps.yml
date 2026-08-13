@@ -1,4 +1,4 @@
-name: Test dry-run basic sync
+name: Test invalid steps input fails
 on:
   workflow_dispatch:
 jobs:
@@ -32,45 +32,25 @@ jobs:
           git remote set-url origin "$GITHUB_WORKSPACE/.git-remote" 2>/dev/null || \
             git remote add origin "$GITHUB_WORKSPACE/.git-remote"
 
-      - id: action
+      - name: Run action with invalid step name and expect failure
+        id: action
         uses: .
         with:
-          source_repo_path: actions/hello-world-javascript-action
+          source_repo_path: AndreasAugustin/actions-template-sync
           upstream_branch: main
           is_dry_run: "true"
-          steps: "prechecks"
+          steps: "invalid_step_name"
           git_user_name: "test-user"
           git_user_email: "test@example.com"
+        continue-on-error: true
 
-      - name: Assert pr_branch output is set
+      - name: Assert action failed due to invalid step name
         env:
-          PR_BRANCH: ${{ steps.action.outputs.pr_branch }}
+          OUTCOME: ${{ steps.action.outcome }}
         run: |
-          echo "pr_branch: $PR_BRANCH"
-          if [ -z "$PR_BRANCH" ]; then
-            echo "FAIL: expected pr_branch output to be non-empty"
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail with invalid step name, but got outcome '$OUTCOME'"
             exit 1
           fi
-          echo "PASS: pr_branch is set to '$PR_BRANCH'"
-
-      - name: Assert template_git_hash output is set
-        env:
-          TEMPLATE_GIT_HASH: ${{ steps.action.outputs.template_git_hash }}
-        run: |
-          echo "template_git_hash: $TEMPLATE_GIT_HASH"
-          if [ -z "$TEMPLATE_GIT_HASH" ]; then
-            echo "FAIL: expected template_git_hash output to be non-empty"
-            exit 1
-          fi
-          echo "PASS: template_git_hash is set to '$TEMPLATE_GIT_HASH'"
-
-      - name: Assert pr_branch contains the default prefix
-        env:
-          PR_BRANCH: ${{ steps.action.outputs.pr_branch }}
-        run: |
-          echo "pr_branch: $PR_BRANCH"
-          if [[ "$PR_BRANCH" != chore/template_sync* ]]; then
-            echo "FAIL: expected pr_branch to start with 'chore/template_sync', got '$PR_BRANCH'"
-            exit 1
-          fi
-          echo "PASS: pr_branch has correct default prefix"
+          echo "PASS: action correctly failed with invalid step name"

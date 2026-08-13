@@ -274,11 +274,8 @@ function pull_source_changes() {
   local source_repo=$1
   local git_remote_pull_params=$2
 
-  # Build the git pull command as an array to avoid eval with user-controlled input
-  local -a pull_params_arr=()
-  if [[ -n "${git_remote_pull_params}" ]]; then
-    read -ra pull_params_arr <<< "${git_remote_pull_params}"
-  fi
+  # Split git_remote_pull_params safely into an array without using eval
+  read -ra pull_params_arr <<< "${git_remote_pull_params}"
   git pull "${source_repo}" --tags "${pull_params_arr[@]}" || pull_has_issues=true
 
   info "finished pulling from the source."

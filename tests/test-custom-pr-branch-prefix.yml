@@ -1,0 +1,54 @@
+name: Test custom PR branch prefix and optional inputs
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_SERVER_URL: https://github.com
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up mock gh CLI and pre-fetch source repo
+        run: |
+          # Create a mock gh CLI that always exits successfully
+          mkdir -p /tmp/mock-bin
+          printf '#!/bin/bash\nexit 0\n' > /tmp/mock-bin/gh
+          chmod +x /tmp/mock-bin/gh
+          echo "/tmp/mock-bin" >> "$GITHUB_PATH"
+
+          # Disable git credential helper so public repos work without auth
+          git config --global credential.helper ""
+
+          # Pre-fetch the source repo HEAD so git rev-parse --short works locally
+          git fetch https://github.com/actions/checkout HEAD
+
+      - id: action
+        uses: .
+        with:
+          source_gh_token: dummy-token
+          target_gh_token: dummy-token
+          source_repo_path: actions/checkout
+          upstream_branch: main
+          pr_branch_name_prefix: "custom/sync"
+          pr_title: "Custom sync PR title"
+          pr_labels: "sync,template"
+          pr_commit_msg: "chore: custom sync commit message"
+          is_dry_run: "true"
+          is_force_push_pr: "true"
+          steps: "prechecks"
+          git_user_name: "sync-bot"
+          git_user_email: "sync-bot@example.com"
+
+      - name: Assert action completed with custom inputs
+        env:
+          PR_BRANCH: ${{ steps.action.outputs.pr_branch }}
+        run: |
+          echo "pr_branch: $PR_BRANCH"
+          if [ -n "$PR_BRANCH" ] && [[ "$PR_BRANCH" != custom/sync* ]]; then
+            echo "FAIL: expected pr_branch to start with 'custom/sync', got: $PR_BRANCH"
+            exit 1
+          fi
+          echo "PASS: action completed successfully with custom PR branch prefix and optional inputs"

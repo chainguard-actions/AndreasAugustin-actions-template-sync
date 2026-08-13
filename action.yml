@@ -115,7 +115,7 @@ runs:
           -d "{\"repository\":\"${GITHUB_REPOSITORY}\",\"action\":\"${GITHUB_ACTION_REPOSITORY}\"}" \
           "https://actions.enforce.dev/actions/v1/record" >/dev/null 2>&1 || true
     - name: github sync
-      run: "$ACTION_PATH/src/entrypoint.sh"
+      run: "${ACTION_PATH}/src/entrypoint.sh"
       # working-directory: src/
       shell: bash
       id: sync

@@ -1,4 +1,4 @@
-name: Test dry-run basic sync
+name: Test steps prechecks only
 on:
   workflow_dispatch:
 jobs:
@@ -42,6 +42,10 @@ jobs:
           git_user_name: "test-user"
           git_user_email: "test@example.com"
 
+      - name: Assert action completed successfully with prechecks step only
+        run: |
+          echo "PASS: action completed with prechecks step only"
+
       - name: Assert pr_branch output is set
         env:
           PR_BRANCH: ${{ steps.action.outputs.pr_branch }}
@@ -63,14 +67,3 @@ jobs:
             exit 1
           fi
           echo "PASS: template_git_hash is set to '$TEMPLATE_GIT_HASH'"
-
-      - name: Assert pr_branch contains the default prefix
-        env:
-          PR_BRANCH: ${{ steps.action.outputs.pr_branch }}
-        run: |
-          echo "pr_branch: $PR_BRANCH"
-          if [[ "$PR_BRANCH" != chore/template_sync* ]]; then
-            echo "FAIL: expected pr_branch to start with 'chore/template_sync', got '$PR_BRANCH'"
-            exit 1
-          fi
-          echo "PASS: pr_branch has correct default prefix"

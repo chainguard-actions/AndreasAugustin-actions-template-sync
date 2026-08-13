@@ -1,4 +1,4 @@
-name: Test dry-run basic sync
+name: Test custom branch prefix
 on:
   workflow_dispatch:
 jobs:
@@ -39,38 +39,28 @@ jobs:
           upstream_branch: main
           is_dry_run: "true"
           steps: "prechecks"
+          pr_branch_name_prefix: "custom/sync"
           git_user_name: "test-user"
           git_user_email: "test@example.com"
 
-      - name: Assert pr_branch output is set
+      - name: Assert pr_branch uses custom prefix
         env:
           PR_BRANCH: ${{ steps.action.outputs.pr_branch }}
         run: |
           echo "pr_branch: $PR_BRANCH"
-          if [ -z "$PR_BRANCH" ]; then
-            echo "FAIL: expected pr_branch output to be non-empty"
+          if [[ "$PR_BRANCH" != custom/sync* ]]; then
+            echo "FAIL: expected pr_branch to start with 'custom/sync', got '$PR_BRANCH'"
             exit 1
           fi
-          echo "PASS: pr_branch is set to '$PR_BRANCH'"
+          echo "PASS: pr_branch has correct custom prefix"
 
-      - name: Assert template_git_hash output is set
+      - name: Assert template_git_hash is set
         env:
           TEMPLATE_GIT_HASH: ${{ steps.action.outputs.template_git_hash }}
         run: |
           echo "template_git_hash: $TEMPLATE_GIT_HASH"
           if [ -z "$TEMPLATE_GIT_HASH" ]; then
-            echo "FAIL: expected template_git_hash output to be non-empty"
+            echo "FAIL: expected template_git_hash to be non-empty"
             exit 1
           fi
-          echo "PASS: template_git_hash is set to '$TEMPLATE_GIT_HASH'"
-
-      - name: Assert pr_branch contains the default prefix
-        env:
-          PR_BRANCH: ${{ steps.action.outputs.pr_branch }}
-        run: |
-          echo "pr_branch: $PR_BRANCH"
-          if [[ "$PR_BRANCH" != chore/template_sync* ]]; then
-            echo "FAIL: expected pr_branch to start with 'chore/template_sync', got '$PR_BRANCH'"
-            exit 1
-          fi
-          echo "PASS: pr_branch has correct default prefix"
+          echo "PASS: template_git_hash is '$TEMPLATE_GIT_HASH'"

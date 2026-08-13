@@ -1,0 +1,44 @@
+name: Test dry-run prechecks step
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_SERVER_URL: https://github.com
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up mock gh CLI and pre-fetch source repo
+        run: |
+          # Create a mock gh CLI that always exits successfully
+          mkdir -p /tmp/mock-bin
+          printf '#!/bin/bash\nexit 0\n' > /tmp/mock-bin/gh
+          chmod +x /tmp/mock-bin/gh
+          echo "/tmp/mock-bin" >> "$GITHUB_PATH"
+
+          # Disable git credential helper so public repos work without auth
+          git config --global credential.helper ""
+
+          # Pre-fetch the source repo HEAD so git rev-parse --short works locally
+          git fetch https://github.com/actions/checkout HEAD
+
+      - id: action
+        uses: .
+        with:
+          source_gh_token: dummy-token
+          target_gh_token: dummy-token
+          source_repo_path: actions/checkout
+          upstream_branch: main
+          is_dry_run: "true"
+          is_force_push_pr: "true"
+          steps: "prechecks"
+          git_user_name: "test-user"
+          git_user_email: "test@example.com"
+
+      - name: Assert action completed
+        run: |
+          echo "Action completed successfully (prechecks step ran)"
+          echo "PASS"
