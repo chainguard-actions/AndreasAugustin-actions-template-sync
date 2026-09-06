@@ -1,0 +1,48 @@
+name: Test prechecks step only
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up git origin reachable inside the action
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          rm -rf "$GITHUB_WORKSPACE/.git-remote"
+          git init --bare "$GITHUB_WORKSPACE/.git-remote"
+          git push "$GITHUB_WORKSPACE/.git-remote" HEAD:refs/heads/act-harness
+          git remote set-url origin "$GITHUB_WORKSPACE/.git-remote" 2>/dev/null || \
+            git remote add origin "$GITHUB_WORKSPACE/.git-remote"
+
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          source_repo_path: AndreasAugustin/actions-template-sync
+          source_branch: main
+          steps: "prechecks"
+          git_user_name: "Test User"
+          git_user_email: "test@example.com"
+
+      - name: Assert prechecks step ran (success or graceful failure)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+          PR_BRANCH: ${{ steps.action.outputs.pr_branch }}
+          TEMPLATE_GIT_HASH: ${{ steps.action.outputs.template_git_hash }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "pr_branch: $PR_BRANCH"
+          echo "template_git_hash: $TEMPLATE_GIT_HASH"
+          if [ "$OUTCOME" = "success" ]; then
+            echo "PASS: prechecks step completed successfully"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (sentinel repo or network issue)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

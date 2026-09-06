@@ -1,0 +1,56 @@
+name: test
+
+on:
+  push:
+  #   branches:
+  #     - "!main"
+  # pull_request:
+  workflow_call:
+  workflow_dispatch:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-implementation-job:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # To use this repository's private action, you must check out the repository
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Test action step
+        id: test
+        uses: ./ # Uses an action in the root directory
+        with:
+          source_repo_path: AndreasAugustin/template.git
+          is_dry_run: true
+          is_force_push_pr: true
+      - name: print output
+        env:
+          FORMER_OUTPUT_PR_BRANCH: ${{ steps.test.outputs.pr_branch }}
+        run: echo "pr_branch ${FORMER_OUTPUT_PR_BRANCH}"
+
+  test-implementation-job-no-dry-run:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # To use this repository's private action, you must check out the repository
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Test action step
+        id: test
+        uses: ./ # Uses an action in the root directory
+        with:
+          source_repo_path: AndreasAugustin/template.git
+          is_dry_run: false
+          is_force_push_pr: true
+      - name: print output
+        env:
+          FORMER_OUTPUT_PR_BRANCH: ${{ steps.test.outputs.pr_branch }}
+        run: echo "pr_branch ${FORMER_OUTPUT_PR_BRANCH}"

@@ -1,0 +1,52 @@
+name: release-please
+
+on:
+  workflow_call:
+    outputs:
+      release_created:
+        description: "Set if the release has been created"
+        value: ${{ jobs.release_please.outputs.release_created }}
+      tag_name:
+        description: "The tag name"
+        value: ${{ jobs.release_please.outputs.tag_name }}
+
+  workflow_dispatch:
+
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release_please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        id: release
+        with:
+          release-type: simple
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: tag major and minor versions
+        if: ${{ steps.release.outputs.release_created }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_MAJOR: ${{ steps.release.outputs.major }}
+          RELEASE_MINOR: ${{ steps.release.outputs.minor }}
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git remote add gh-token "https://${GITHUB_TOKEN}@github.com/google-github-actions/release-please-action.git"
+          git tag -d "v${RELEASE_MAJOR}" || true
+          git tag -d "v${RELEASE_MAJOR}.${RELEASE_MINOR}" || true
+          git push origin ":v${RELEASE_MAJOR}" || true
+          git push origin ":v${RELEASE_MAJOR}.${RELEASE_MINOR}" || true
+          git tag -a "v${RELEASE_MAJOR}" -m "Release v${RELEASE_MAJOR}"
+          git tag -a "v${RELEASE_MAJOR}.${RELEASE_MINOR}" -m "Release v${RELEASE_MAJOR}.${RELEASE_MINOR}"
+          git push origin "v${RELEASE_MAJOR}"
+          git push origin "v${RELEASE_MAJOR}.${RELEASE_MINOR}"

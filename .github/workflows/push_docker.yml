@@ -1,0 +1,109 @@
+name: push-docker
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "The docker image tag"
+        required: true
+        type: string
+    secrets:
+      DOCKERHUB_USERNAME:
+        description: "The dockerhub username"
+        required: true
+      DOCKERHUB_TOKEN:
+        description: "The dockerhub token"
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The docker image tag"
+        required: true
+        type: string
+
+concurrency:
+  group: push-docker-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build_and_push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        variant: ["actions-template-sync"]
+        target: ["prod", "dev"]
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Login to DockerHub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Login to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: |
+            andyaugustin/${{ matrix.variant }}
+            ghcr.io/andreasaugustin/${{ matrix.variant }}
+          tags: |
+            type=semver,pattern={{raw}},value=${{ inputs.tag }}${{ matrix.target == 'dev' && '-dev' || '' }}
+      - name: Build ${{ matrix.variant }}
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          target: ${{ matrix.target }}
+          load: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+      - name: install container test tools
+        run: |
+          echo "Install container tools"
+          curl -LO https://storage.googleapis.com/container-structure-test/latest/container-structure-test-linux-amd64 \
+            && chmod +x container-structure-test-linux-amd64 \
+            && sudo mv container-structure-test-linux-amd64 /usr/local/bin/container-structure-test
+      - name: test docker image
+        env:
+          MATRIX_VARIANT: ${{ matrix.variant }}
+          INPUT_TAG: ${{ inputs.tag }}
+          MATRIX_TARGET: ${{ matrix.target }}
+        run: |
+          echo "Run tests"
+          DEV_SUFFIX=""
+          if [ "$MATRIX_TARGET" = "dev" ]; then DEV_SUFFIX="-dev"; fi
+          container-structure-test test \
+            --image "andyaugustin/${MATRIX_VARIANT}:${INPUT_TAG}${DEV_SUFFIX}" \
+            --config docker-test-config.yml
+          container-structure-test test \
+            --image "ghcr.io/andreasaugustin/${MATRIX_VARIANT}:${INPUT_TAG}${DEV_SUFFIX}" \
+            --config docker-test-config.yml
+      - name: push ${{ matrix.variant }}
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          target: ${{ matrix.target }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+      - name: Docker Hub Description
+        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: andyAugustin/${{ matrix.variant }}
+          readme-filepath: ./docs/DOCKER.md
+          short-description: See https://github.com/${{ github.repository }} to have a look into the source code.

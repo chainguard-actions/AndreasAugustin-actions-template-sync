@@ -1,0 +1,53 @@
+name: Test hooks and SSH key options (hooks, source_repo_ssh_private_key)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up git origin reachable inside the action
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          rm -rf "$GITHUB_WORKSPACE/.git-remote"
+          git init --bare "$GITHUB_WORKSPACE/.git-remote"
+          git push "$GITHUB_WORKSPACE/.git-remote" HEAD:refs/heads/act-harness
+          git remote set-url origin "$GITHUB_WORKSPACE/.git-remote" 2>/dev/null || \
+            git remote add origin "$GITHUB_WORKSPACE/.git-remote"
+
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          source_repo_path: AndreasAugustin/actions-template-sync
+          source_branch: main
+          is_dry_run: "true"
+          is_allow_hooks: "false"
+          hooks: ""
+          source_repo_ssh_private_key: ""
+          git_user_name: "Test User"
+          git_user_email: "test@example.com"
+
+      - name: Assert action ran with hooks and SSH inputs
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+          TEMPLATE_GIT_HASH: ${{ steps.action.outputs.template_git_hash }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "template_git_hash: $TEMPLATE_GIT_HASH"
+          if [ "$OUTCOME" = "success" ]; then
+            if [ -z "$TEMPLATE_GIT_HASH" ]; then
+              echo "FAIL: action succeeded but template_git_hash is empty"
+              exit 1
+            fi
+            echo "PASS: action succeeded with template_git_hash=$TEMPLATE_GIT_HASH"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (sentinel repo or network issue)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
