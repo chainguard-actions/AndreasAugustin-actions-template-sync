@@ -163,8 +163,8 @@ function set_github_action_outputs() {
     info "env var 'GITHUB_RUN_ID' is empty -> no github action workflow"
   else
     # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-output-parameter
-    # Sanitize values to prevent newline injection into $GITHUB_OUTPUT
     # shellcheck disable=SC2129
+    # Sanitize values to prevent newline injection into $GITHUB_OUTPUT
     safe_pr_branch=$(printf '%s' "${pr_branch}" | tr -d '\n\r')
     safe_template_git_hash=$(printf '%s' "${template_git_hash}" | tr -d '\n\r')
     safe_pr_number=$(printf '%s' "${pr_number}" | tr -d '\n\r')
@@ -309,10 +309,17 @@ function pull_source_changes() {
   local git_remote_pull_params=$2
   local source_pull_ref=${3:-}
 
+  local -a pull_params=()
+  if [[ -n "${git_remote_pull_params}" ]]; then
+    printf '%s' "${git_remote_pull_params}" | xargs -r true >/dev/null
+    while IFS= read -r -d '' t; do pull_params+=("$t"); done \
+      < <(printf '%s' "${git_remote_pull_params}" | xargs -r sh -c 'printf "%s\0" "$@"' sh)
+  fi
+
   if [[ -n "${source_pull_ref}" ]]; then
-    eval "git pull ${source_repo} --tags ${git_remote_pull_params} ${source_pull_ref}" || pull_has_issues=true
+    git pull "${source_repo}" --tags "${pull_params[@]}" "${source_pull_ref}" || pull_has_issues=true
   else
-    eval "git pull ${source_repo} --tags ${git_remote_pull_params}" || pull_has_issues=true
+    git pull "${source_repo}" --tags "${pull_params[@]}" || pull_has_issues=true
   fi
 
   info "finished pulling from the source."
