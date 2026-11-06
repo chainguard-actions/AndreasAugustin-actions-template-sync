@@ -274,7 +274,17 @@ function pull_source_changes() {
   local source_repo=$1
   local git_remote_pull_params=$2
 
-  eval "git pull ${source_repo} --tags ${git_remote_pull_params}" || pull_has_issues=true
+  local pull_params=()
+  if [ -n "${git_remote_pull_params}" ]; then
+    if ! printf '%s' "${git_remote_pull_params}" | xargs -r true >/dev/null; then
+      err "could not parse 'git_remote_pull_params' (unmatched quote?)"
+      exit 1
+    fi
+    while IFS= read -r -d '' t; do pull_params+=("$t"); done \
+      < <(printf '%s' "${git_remote_pull_params}" | xargs -r sh -c 'printf "%s\0" "$@"' sh)
+  fi
+
+  git pull "${source_repo}" --tags "${pull_params[@]}" || pull_has_issues=true
 
   info "finished pulling from the source."
   info "logging out from source ${SOURCE_REPO_HOSTNAME}."
