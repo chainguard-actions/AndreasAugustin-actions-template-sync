@@ -140,8 +140,9 @@ function set_github_action_outputs() {
     info "env var 'GITHUB_RUN_ID' is empty -> no github action workflow"
   else
     # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-output-parameter
-    # Sanitize values to prevent newline injection before writing to GITHUB_OUTPUT
     # shellcheck disable=SC2129
+    # Sanitize values to prevent newline injection before writing to GITHUB_OUTPUT
+    local safe_pr_branch safe_template_git_hash safe_pr_number
     safe_pr_branch=$(printf '%s' "${pr_branch}" | tr -d '\n\r')
     safe_template_git_hash=$(printf '%s' "${template_git_hash}" | tr -d '\n\r')
     safe_pr_number=$(printf '%s' "${pr_number}" | tr -d '\n\r')
@@ -279,8 +280,23 @@ function pull_source_changes() {
   local source_repo=$1
   local git_remote_pull_params=$2
 
-  read -ra pull_params <<< "${git_remote_pull_params}"
-  git pull "${source_repo}" --tags "${pull_params[@]}" || pull_has_issues=true
+  # Tokenize the pull params quote-aware (as the former eval did) without evaluating them
+  local pull_params=()
+  local params_valid=true
+  if [ -n "${git_remote_pull_params}" ]; then
+    if printf '%s' "${git_remote_pull_params}" | xargs -r true >/dev/null; then
+      while IFS= read -r -d '' t; do pull_params+=("$t"); done \
+        < <(printf '%s' "${git_remote_pull_params}" | xargs -r sh -c 'printf "%s\0" "$@"' sh)
+    else
+      warn "could not parse git_remote_pull_params (unmatched quote?)"
+      params_valid=false
+      pull_has_issues=true
+    fi
+  fi
+
+  if [ "${params_valid}" == true ]; then
+    git pull "${source_repo}" --tags "${pull_params[@]}" || pull_has_issues=true
+  fi
 
   info "finished pulling from the source."
   info "logging out from source ${SOURCE_REPO_HOSTNAME}."
